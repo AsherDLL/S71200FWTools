@@ -9,7 +9,6 @@ Pure Python 3, no required dependencies, no build step.
 $ s7fw identify V04.05.02_small.bin
 architecture: ARM 32-bit big-endian, base 0x37fc0
 confidence  : high
-evidence    : vector table + capstone (3403 insns, 66% coverage, 57x next candidate)
 vector table: file 0x40 -> VA 0x00038000
 entry point : VA 0x00040040 (file 0x8080)
 ghidra      : language ARM:BE:32:v7, base 0x37fc0
@@ -21,7 +20,6 @@ OMS+        : 12.35.8 [OMSP_12.00.01.08_35.08.00.01]
 
 ```bash
 pip install .                # provides the `s7fw` command
-pip install ".[disasm]"      # + capstone, for architecture scoring
 ```
 
 Or run in place without installing: `./s7fw-cli <command>`

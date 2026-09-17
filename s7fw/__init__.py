@@ -25,13 +25,10 @@ from .container import (
     load,
 )
 from .errors import (
-    CompressionError,
-    ContainerError,
     CorruptStreamError,
     S7FirmwareError,
     TruncatedContainerError,
     UnknownLayoutError,
-    UnsupportedFormatError,
 )
 from .fingerprint import (
     LOAD_BASE,
@@ -66,11 +63,8 @@ __all__ = [
     "extract_symbols",
     "find_record_tag",
     "S7FirmwareError",
-    "ContainerError",
     "TruncatedContainerError",
     "UnknownLayoutError",
-    "CompressionError",
     "CorruptStreamError",
-    "UnsupportedFormatError",
     "__version__",
 ]

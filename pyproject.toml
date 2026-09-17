@@ -24,7 +24,6 @@ dependencies = []
 # Jython-adjacent environments, IDA's bundled Python, and bare CI images.
 # Everything that is merely *better* with a third-party library is optional.
 [project.optional-dependencies]
-disasm = ["capstone>=4.0"]        # trial-disassembly architecture scoring
 archives = ["rarfile>=4.0"]       # read vendor .rar bundles directly
 dev = ["pytest>=7.0", "ruff>=0.1", "mypy>=1.0"]
 

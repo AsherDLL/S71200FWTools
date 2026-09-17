@@ -112,8 +112,7 @@ vectors   : VA 0x38000     (file 0x40)
 entry     : VA 0x40040     (file 0x8080)
 ```
 
-`s7fw identify <image.bin>` prints these for any unpacked image, plus the
-architecture ranking from trial disassembly (`--candidates`).
+`s7fw identify <image.bin>` prints these for any unpacked image.
 
 ## Manual route, without the loader
 

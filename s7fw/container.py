@@ -69,12 +69,6 @@ class FirmwareVersion:
     def __str__(self) -> str:
         return f"V{self.major:02d}.{self.minor:02d}.{self.patch:02d}"
 
-    def __lt__(self, other: "FirmwareVersion") -> bool:
-        return (self.major, self.minor, self.patch) < (
-            other.major,
-            other.minor,
-            other.patch,
-        )
 
 
 @dataclass(frozen=True)

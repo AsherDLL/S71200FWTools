@@ -143,7 +143,6 @@ def cmd_identify(args: argparse.Namespace) -> int:
     print(f"file        : {Path(args.file).name} ({len(image)} bytes)")
     print(f"architecture: {arch}")
     print(f"confidence  : {'high' if arch.confident else 'LOW'}")
-    print(f"evidence    : {arch.evidence}")
     if arch.vector_offset is not None:
         print(f"vector table: file 0x{arch.vector_offset:x} -> "
               f"VA 0x{arch.vector_offset + arch.load_base:08x}")
@@ -155,12 +154,6 @@ def cmd_identify(args: argparse.Namespace) -> int:
     print(f"ida         : ARM processor, big-endian, ROM base 0x{arch.load_base:x}")
     if oms:
         print(f"OMS+        : {oms} [{oms.raw}]")
-    if args.candidates and arch.candidates:
-        print("\ncandidate architectures (trial disassembly):")
-        print(f"  {'arch':<10}{'insns':>8}{'coverage':>10}{'score':>9}")
-        for cand in arch.candidates:
-            print(f"  {cand.name:<10}{cand.instructions:>8}"
-                  f"{cand.coverage:>9.1f}%{cand.score:>9.2f}")
     return 0
 
 
@@ -236,8 +229,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("identify", help="identify arch/OMS+ of an unpacked image")
     p.add_argument("file")
-    p.add_argument("--candidates", action="store_true",
-                   help="show the full architecture ranking (needs capstone)")
     p.set_defaults(func=cmd_identify)
     return parser
 

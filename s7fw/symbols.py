@@ -54,13 +54,6 @@ class Symbol:
     base_va: int = 0
     code_vas: tuple = ()
 
-    @property
-    def is_template(self) -> bool:
-        return "<" in self.name
-
-    @property
-    def namespace(self) -> Optional[str]:
-        return self.name.rsplit("::", 1)[0] if "::" in self.name else None
 
     def __str__(self) -> str:
         return self.name
