@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "s7fw"
+version = "1.0.0"
+description = "Siemens SIMATIC S7-1200 firmware container parser and LZP unpacker"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+keywords = ["siemens", "s7-1200", "plc", "firmware", "reverse-engineering", "lzp"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+    "Topic :: System :: Hardware",
+]
+dependencies = []
+
+# Core unpacking is pure stdlib on purpose: it must run inside Ghidra's
+# Jython-adjacent environments, IDA's bundled Python, and bare CI images.
+# Everything that is merely *better* with a third-party library is optional.
+[project.optional-dependencies]
+disasm = ["capstone>=4.0"]        # trial-disassembly architecture scoring
+archives = ["rarfile>=4.0"]       # read vendor .rar bundles directly
+dev = ["pytest>=7.0", "ruff>=0.1", "mypy>=1.0"]
+
+[project.scripts]
+s7fw = "s7fw.cli:main"
+
+[tool.setuptools]
+packages = ["s7fw"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"

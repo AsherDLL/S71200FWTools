@@ -1,0 +1,15 @@
+s7fw
+Copyright 2026 the s7fw authors
+
+This product includes software derived from s7unpack
+(https://github.com/jibeee/s7unpack), Copyright 2018 Jean-Baptiste Bedrune,
+licensed under the Apache License, Version 2.0.
+
+The LZP compression algorithm implemented in s7fw/lzp.py was reverse engineered
+black-box from a compressed firmware image by Jean-Baptiste Bedrune (@jibeee)
+and presented at SSTIC 2015 and HITB Amsterdam 2015. s7fw is an independent
+Python reimplementation of that algorithm.
+
+This project is not affiliated with, endorsed by, or supported by Siemens AG.
+SIMATIC and S7-1200 are trademarks of Siemens AG. No firmware is distributed
+with this software.
