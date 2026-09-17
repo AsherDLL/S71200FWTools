@@ -27,8 +27,8 @@ from __future__ import annotations
 
 import re
 import struct
-from dataclasses import dataclass, field
-from typing import Dict, Iterator, List, Optional
+from dataclasses import dataclass
+from typing import Dict, Iterator, Optional
 
 from .fingerprint import LOAD_BASE
 

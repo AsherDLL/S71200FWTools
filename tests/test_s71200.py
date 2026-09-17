@@ -16,10 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from s71200 import ihex  # noqa: E402
-from s71200.cli import cpu_of  # noqa: E402
 from s71200 import (  # noqa: E402
-    CHUNK_SIZE,
     CorruptStreamError,
     Firmware,
     Layout,
@@ -31,8 +28,10 @@ from s71200 import (  # noqa: E402
     find_oms_version,
     find_record_tag,
     identify_arch,
+    ihex,
     iter_chunks,
 )
+from s71200.cli import cpu_of  # noqa: E402
 
 CORPUS = os.environ.get("S71200_CORPUS")
 _SEED = b"\x01\x02\x03\x04"

@@ -1,6 +1,0 @@
-# No runtime dependencies. The s71200 package is standard library only, which
-# is what lets the IDA loader import it from whichever interpreter IDAPython
-# is built against.
-#
-# Install the package itself with:  pip install .
-# Development tooling:              pip install -r requirements-dev.txt

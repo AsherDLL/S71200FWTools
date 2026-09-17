@@ -28,7 +28,13 @@ pip install .
 That provides the `s71200` command. To run without installing, use
 `./s71200-cli` from the repository root.
 
-Python 3.9 or later. There are no third party requirements.
+Python 3.9 or later. There are no runtime requirements, so there is no
+`requirements.txt`. `pyproject.toml` declares everything, including the test
+and lint tooling:
+
+```bash
+pip install -e ".[dev]"
+```
 
 ## Command line
 
@@ -92,7 +98,6 @@ ida/               IDA Pro loader, headless script, and a test that runs
                    without IDA installed
 tests/             36 tests
 docs/FORMAT.md     container, compression and image format specification
-requirements.txt   none at runtime; requirements-dev.txt has pytest, ruff, mypy
 ```
 
 ## IDA Pro

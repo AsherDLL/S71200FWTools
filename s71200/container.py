@@ -28,7 +28,7 @@ from typing import Iterator, List, Optional, Sequence, Tuple
 
 from . import ihex
 from .errors import TruncatedContainerError, UnknownLayoutError
-from .lzp import CHUNK_SIZE, LzpDecoder, LzpStats
+from .lzp import LzpDecoder, LzpStats
 
 __all__ = ["Firmware", "Section", "Layout", "FirmwareVersion", "load", "discover"]
 

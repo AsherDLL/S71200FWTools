@@ -37,3 +37,10 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 target-version = "py39"
+
+# Pin the rule set. Ruff's implicit default widens between releases, so leaving
+# it unset means an unrelated ruff upgrade can fail a project that has not
+# changed. These are pyflakes, the pycodestyle errors worth enforcing, and
+# import sorting.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

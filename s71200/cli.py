@@ -9,7 +9,7 @@ import multiprocessing
 import re
 import sys
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence
+from typing import Iterable, Optional, Sequence
 
 from .container import Firmware, discover, load
 from .errors import S7FirmwareError
