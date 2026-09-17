@@ -33,8 +33,11 @@ Python 3.9 or later. There are no runtime requirements, so there is no
 and lint tooling:
 
 ```bash
-pip install -e ".[dev]"
+pip install ".[dev]"
 ```
+
+Add `-e` for an editable install, which needs pip 21.3 or newer. The pip
+bundled with Python 3.9 is older than that and rejects it.
 
 ## Command line
 
