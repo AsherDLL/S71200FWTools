@@ -86,7 +86,8 @@ The loader names each RTTI record `rtti_<ClassName>` and marks the record's
 code pointers as offsets. Each slot then renders as a reference to its target,
 for example `DCD sub_CD15A8`, and carries a cross-reference, so the code is
 reachable from the class and the class from the code. On a V4.5.2 image that is
-7,107 names and 12,443 linked pointers.
+7,107 names and 12,443 linked pointers; on V4.7.0, 7,192 and 12,867 for the
+small CPU class and 7,202 and 12,933 for the large one.
 
 Those code pointers belong to the class, but their exact role, such as
 constructor, destructor or virtual slot, has not been established, so the
@@ -113,13 +114,19 @@ every function plus the recovered classes as JSON, so two firmware versions can
 be compared without opening the GUI. It calls `ida_pro.qexit()` in a `finally`
 block. Without that call `idat` does not terminate.
 
-## The decompiler does not apply here
+## The decompiler and database bitness
 
-Hex-Rays decompiles 64-bit ARM, not 32-bit. Every function in these images
-fails with `MERR_ONLY64`, and so does a four instruction ARM32 function in a
-throwaway database, in either byte order. This is a property of the decompiler,
-not of the loader or of this firmware. Disassembly, naming and cross-references
-all work normally.
+The loader calls `ida_ida.inf_set_app_bitness(32)`. IDA 9 creates a 64-bit
+database unless the loader says otherwise, and Hex-Rays binds its personality
+to the database rather than to the segment, so without that call the ARM32
+decompiler rejects every function with `MERR_ONLY64`, whose message reads "only
+64-bit functions can be decompiled in the current database". Setting the
+segment to 32-bit addressing is not enough on its own.
+
+With it set, decompilation works: on a V4.7.0 image, 24 of a 25 function sample
+return `MERR_OK`, the remaining one `MERR_BADBLK`, which is an ordinary
+per-function failure rather than a systemic one. This needs an ARM32 decompiler
+licence, which is separate from the ARM64 one.
 
 ## Testing without IDA
 
@@ -136,9 +143,10 @@ that.
 
 Written against the IDA 9 API. `idc.set_inf_attr` is deprecated and
 `get_inf_structure` was removed in 9.0, so this loader uses
-`ida_ida.inf_set_be()`, `ida_ida.inf_set_start_cs()`,
-`ida_ida.inf_set_start_ip()` and `ida_ida.inf_set_start_ea()`, and the granular
-`ida_*` modules rather than the older monolithic `idaapi`.
+`ida_ida.inf_set_be()`, `ida_ida.inf_set_app_bitness()`,
+`ida_ida.inf_set_start_cs()`, `ida_ida.inf_set_start_ip()` and
+`ida_ida.inf_set_start_ea()`, and the granular `ida_*` modules rather than the
+older monolithic `idaapi`.
 
 A Python loader was chosen over an SDK based C++ one because it needs no
 compilation and no rebuild for each IDA release.
@@ -155,3 +163,12 @@ Loading Segment dialog set both ROM start address and loading address to
 "No automatic ARM-THUMB switch", or the analysis will mis-decode several
 megabytes. Then run Analysis and Reanalyze, jump to `0x40040` and press `C` to
 begin disassembly there.
+
+A manually imported database stays 64-bit, so the decompiler will refuse every
+function. Set the bitness from IDA's Python console, then save and reopen the
+database, because Hex-Rays picks its personality when it first runs and does
+not re-read the flag afterwards:
+
+```python
+import ida_ida; ida_ida.inf_set_app_bitness(32)
+```

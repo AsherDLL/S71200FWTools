@@ -33,7 +33,7 @@ bts.get_dword = lambda ea: int.from_bytes(
     mapped["image"][ea - mapped["base"]:ea - mapped["base"] + 4], "big")
 _stub("ida_entry", "add_entry")
 _stub("ida_ida", "inf_set_be", "inf_set_start_ea", "inf_set_start_ip",
-      "inf_set_start_cs")
+      "inf_set_start_cs", "inf_set_app_bitness")
 ldr = _stub("ida_loader")
 ldr.ACCEPT_FIRST = 0x8000
 
@@ -102,6 +102,7 @@ def main(path):
                      "ida_loader.mem2base", "ida_segment.add_segm",
                      "ida_entry.add_entry", "ida_ida.inf_set_start_ea",
                      "ida_ida.inf_set_start_ip", "ida_ida.inf_set_start_cs",
+                     "ida_ida.inf_set_app_bitness",
                      "ida_bytes.create_dword"):
         assert required in made, f"loader never called {required}"
     names = sum(1 for n, _ in calls if n == "ida_name.set_name")

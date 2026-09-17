@@ -92,6 +92,7 @@ ida/               IDA Pro loader, headless script, and a test that runs
                    without IDA installed
 tests/             33 tests
 docs/FORMAT.md     container, compression and image format specification
+requirements.txt   none at runtime; requirements-dev.txt has pytest, ruff, mypy
 ```
 
 ## IDA Pro
@@ -104,7 +105,8 @@ IDAPython uses. [ida/README.md](ida/README.md) covers how to find it.
 Opening a `.upd` file or an already unpacked `.bin` then sets up everything.
 Big-endian ARM, the load base, the eight exception vectors, the entry point,
 and the recovered class symbols. It also turns off IDA's automatic ARM/Thumb
-switching, which otherwise mis-decodes about 3 MB of a V4.5.2 image.
+switching, which otherwise mis-decodes about 3 MB of a V4.5.2 image, and sets
+the database to 32-bit, without which the decompiler refuses every function.
 
 No processor module is required. The S7-1200 is ordinary big-endian ARM, which
 IDA ships as standard. See [ida/README.md](ida/README.md).
@@ -119,8 +121,10 @@ V4.6.0 and V4.7.0.
 |------|--------|
 | container parsing | 109 of 109, both generations |
 | extraction | V2.2.0 through V4.7.0 |
-| symbols | 2,608 on V3.0.2 rising to 9,956 on V4.4.0, then 7,097 to 7,192 from V4.5.0 on. Stable within a release across CPU order numbers. V2.2.0 carries no records this recognises |
-| IDA loading | V2.2.0, V3.0.2, V4.2.0, V4.3.1, V4.4.0, V4.5.2, V4.6.0, V4.7.0 and a pre-unpacked image, each verified in IDA 9.4 for processor, byte order, load base, entry point, vector labels and symbol count |
+| symbols | 2,608 on V3.0.2 rising to 9,956 on V4.4.0, then 7,097 to 7,202 from V4.5.0 on. Stable within a release across CPU order numbers. V2.2.0 carries no records this recognises |
+| IDA loading | V2.2.0, V3.0.2, V4.2.0, V4.3.1, V4.4.0, V4.5.2, V4.6.0, V4.7.0 and a pre-unpacked image, each verified in IDA 9.4 for processor, byte order, database bitness, load base, entry point, vector labels and symbol count |
+| V4.7.0 | all 10 CPU order numbers parse, carrying two distinct payloads. Both loaded in IDA 9.4 and verified end to end, including decompilation and the headless JSON export |
+| decompiler | works on 32-bit ARM once the loader sets the database bitness. 24 of a 25 function sample on V4.7.0 return `MERR_OK` |
 | tests | 33 of 33, run with `S71200_CORPUS=/path/to/firmware python3 tests/test_s71200.py` |
 | reproducibility | output stays byte identical across refactors |
 

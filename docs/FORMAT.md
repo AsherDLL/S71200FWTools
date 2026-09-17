@@ -264,7 +264,7 @@ Recovered counts, one image per release:
 | V4.3.1 | 9,219 |
 | V4.4.0 | 9,956 |
 | V4.5.0 to V4.6.0 | 7,097 small CPU class, 7,107 large |
-| V4.7.0 | 7,192 |
+| V4.7.0 | 7,192 small CPU class, 7,202 large |
 
 The count is stable within a release across CPU order numbers and differs
 between releases, so it is not a property of the parser. Why it falls by about

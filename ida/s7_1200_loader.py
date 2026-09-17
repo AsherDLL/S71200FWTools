@@ -74,6 +74,11 @@ def load_file(li, neflags, fmt):
 
     ida_idp.set_processor_type("arm", ida_idp.SETPROC_LOADER)
     ida_ida.inf_set_be(True)
+    # IDA 9 databases are 64-bit unless the loader says otherwise, and Hex-Rays
+    # binds its personality to the database, not to the segment. Without this
+    # the ARM32 decompiler refuses every function with MERR_ONLY64, "only
+    # 64-bit functions can be decompiled in the current database".
+    ida_ida.inf_set_app_bitness(32)
     # This firmware is ARM throughout. Left on, IDA's automatic ARM/Thumb
     # switching mis-flips about 3 MB of it, including the entry point, and
     # every mis-flipped byte disassembles two bytes at a time as nonsense.
