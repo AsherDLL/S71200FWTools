@@ -16,7 +16,7 @@ from .errors import S7FirmwareError
 from .fingerprint import find_oms_version, identify_arch
 from .symbols import extract_symbols
 
-__all__ = ["main", "build_parser"]
+__all__ = ["main", "build_parser", "cpu_of"]
 
 
 def _iter_firmware(paths: Iterable[str]) -> Iterable[tuple[str, Firmware]]:
@@ -88,17 +88,25 @@ def cmd_unpack(args: argparse.Namespace) -> int:
     return 0
 
 
-def _unpack_one(job: tuple[str, bytes, str]) -> Optional[tuple]:
-    label, data, outdir = job
+def cpu_of(mlfb: str) -> str:
+    """CPU number from an order number, so "6ES7 211-1AE40-0XB0" gives "1211".
+
+    A release ships one build per CPU group rather than per order number, and
+    the group is what the number identifies.
+    """
+    digits = "".join(c for c in mlfb.split("-")[0] if c.isdigit())
+    return "1" + digits[-3:] if len(digits) >= 3 else "unknown"
+
+
+def _unpack_one(job: tuple[str, bytes, str, str]) -> Optional[tuple]:
+    label, data, outdir, name = job
     fw = Firmware(data)
     try:
         image, stats, _ = fw.unpack(strict=True)
     except S7FirmwareError as exc:
         return (label, str(fw.version), None, 0, 0, str(exc))
-    size_class = "small" if fw[fw.code_section].size < 15_300_000 else "large"
-    name = f"{fw.version}_{size_class}.bin"
     Path(outdir, name).write_bytes(image)
-    return (name, str(fw.version), size_class, fw[fw.code_section].size,
+    return (name, str(fw.version), cpu_of(fw.mlfb), fw[fw.code_section].size,
             len(image), hashlib.sha256(image).hexdigest())
 
 
@@ -116,19 +124,31 @@ def cmd_batch(args: argparse.Namespace) -> int:
         seen.setdefault(digest, (label, data))
     print(f"{len(seen)} unique compressed payloads")
 
-    jobs = [(label, data, str(outdir)) for label, data in seen.values()]
+    # Name each payload before dispatching, so collisions are resolved here
+    # rather than raced over by the pool. Two builds of one release would
+    # otherwise overwrite each other and one would be lost without a word.
+    names: dict[str, str] = {}
+    for digest, (label, data) in seen.items():
+        fw = Firmware(data)
+        name = f"{fw.version}_{cpu_of(fw.mlfb)}.bin"
+        if name in names.values():
+            name = f"{fw.version}_{cpu_of(fw.mlfb)}_{digest[:8]}.bin"
+        names[digest] = name
+
+    jobs = [(label, data, str(outdir), names[digest])
+            for digest, (label, data) in seen.items()]
     workers = min(len(jobs), multiprocessing.cpu_count()) or 1
     with multiprocessing.Pool(workers) as pool:
         results = [r for r in pool.map(_unpack_one, jobs) if r]
 
-    print(f"\n{'output':<24}{'version':<12}{'class':<7}{'compressed':>12}"
+    print(f"\n{'output':<28}{'version':<12}{'cpu':<7}{'compressed':>12}"
           f"{'unpacked':>12}")
-    print("-" * 68)
+    print("-" * 71)
     for row in sorted(results, key=lambda r: (r[2] or "", r[1])):
         if row[2] is None:
-            print(f"{Path(row[0]).name:<24}{row[1]:<12}FAILED  {row[5]}")
+            print(f"{Path(row[0]).name:<28}{row[1]:<12}FAILED  {row[5]}")
         else:
-            print(f"{row[0]:<24}{row[1]:<12}{row[2]:<7}{row[3]:>12}{row[4]:>12}")
+            print(f"{row[0]:<28}{row[1]:<12}{row[2]:<7}{row[3]:>12}{row[4]:>12}")
     print()
     for row in sorted(results, key=lambda r: (r[2] or "", r[1])):
         if row[2] is not None:

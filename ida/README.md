@@ -87,7 +87,8 @@ code pointers as offsets. Each slot then renders as a reference to its target,
 for example `DCD sub_CD15A8`, and carries a cross-reference, so the code is
 reachable from the class and the class from the code. On a V4.5.2 image that is
 7,107 names and 12,443 linked pointers; on V4.7.0, 7,192 and 12,867 for the
-small CPU class and 7,202 and 12,933 for the large one.
+`1211` build and 7,202 and 12,933 for the `1215` build. The two builds of a
+release are described in the main README.
 
 Those code pointers belong to the class, but their exact role, such as
 constructor, destructor or virtual slot, has not been established, so the

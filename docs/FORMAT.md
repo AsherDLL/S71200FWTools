@@ -263,11 +263,11 @@ Recovered counts, one image per release:
 | V4.2.0 | 8,927 |
 | V4.3.1 | 9,219 |
 | V4.4.0 | 9,956 |
-| V4.5.0 to V4.6.0 | 7,097 small CPU class, 7,107 large |
-| V4.7.0 | 7,192 small CPU class, 7,202 large |
+| V4.5.0 to V4.6.0 | 7,097 for the 1211 build, 7,107 for the 1215 build |
+| V4.7.0 | 7,192 for the 1211 build, 7,202 for the 1215 build |
 
-The count is stable within a release across CPU order numbers and differs
-between releases, so it is not a property of the parser. Why it falls by about
+The count is stable within a build and differs between releases, so it is not
+a property of the parser. Why it falls by about
 a quarter between V4.4.0 and V4.5.0 has not been investigated.
 
 Namespaces include `ACE_6_5_0::`, which is the ADAPTIVE Communication
@@ -307,7 +307,44 @@ In a compressed `.upd` these strings are fragmented by LZP tokens and cannot be
 found with a plain substring search. After decompression they are contiguous,
 which makes that contiguity a useful correctness check on the unpacker.
 
-## 9. Cross release drift
+## 9. Two builds per release
+
+A release covers many order numbers but ships only two distinct payloads, and
+the split is by CPU group, identically in every release examined.
+
+| Build | Order numbers | Models | What is different |
+|-------|---------------|--------|-------------------|
+| `1211` | 6ES7 211, 212, 214 | CPU 1211C, 1212C, 1214C | one PROFINET port |
+| `1215` | 6ES7 215, 217 | CPU 1215C, 1217C | two-port PROFINET, MRP ring redundancy |
+
+The `Build` column is the label the `batch` command puts in output filenames,
+taken from the order number rather than guessed from a size.
+
+Comparing the recovered class sets of the two V4.7.0 builds gives 6,293 shared
+classes, 5 unique to `1211` and 15 unique to `1215`. The difference is the
+media redundancy stack:
+
+```
+only in 1215:  CLSI_SysPtr_MRP          CLSI_SysPtr_MRP_CM
+               CLSI_SysPtr_MRP_Abstract CLSI_SysPtr_MRP_EDDS
+               CLSI_SysPtr_CM_MRP       CLSI_SysPtr_OHA_MRP
+               CLSI_SysPath_MRP_EDDS    CLSI_SysPath_MRP_EDD_Abstract
+               CLSI_Timer_Mgr<2U, CLSI_Timer_UnsortedList<2U>>
+               CLSI_Timer_Heap<688U>
+
+only in 1211:  CLSI_Timer_Mgr<1U, CLSI_Timer_UnsortedList<1U>>
+               CLSI_Timer_Heap<683U>
+               IQEventPool<IQEventCIO, 97>
+```
+
+MRP is the PROFINET ring redundancy protocol and needs two ports to close a
+ring. The timer managers are instantiated with `2U` against `1U`, the timer
+heaps are sized 688 against 683, the literal `MRP` occurs 27 times against 5,
+and `Port2` occurs twice against not at all. The unpacked images are the same
+size in both builds; only the compressed payload differs, 16,542,370 bytes
+against 16,365,646 on V4.7.0.
+
+## 10. Cross release drift
 
 Consecutive releases differ in about 77% of bytes at fixed offsets, because
 each release is a full rebuild rather than a patch. Byte offset diffing is

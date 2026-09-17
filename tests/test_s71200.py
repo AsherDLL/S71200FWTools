@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from s71200 import ihex  # noqa: E402
+from s71200.cli import cpu_of  # noqa: E402
 from s71200 import (  # noqa: E402
     CHUNK_SIZE,
     CorruptStreamError,
@@ -129,6 +130,25 @@ class TestContainerRejection(unittest.TestCase):
 def _ihex_record(kind: int, address: int, data: bytes) -> bytes:
     body = bytes([len(data)]) + address.to_bytes(2, "big") + bytes([kind]) + data
     return b":" + (body + bytes([-sum(body) & 0xFF])).hex().upper().encode()
+
+
+class TestOutputNaming(unittest.TestCase):
+    """A release ships one build per CPU group, so the name has to carry it."""
+
+    def test_cpu_comes_from_the_order_number(self) -> None:
+        for mlfb, cpu in (
+            ("6ES7 211-1AE40-0XB0", "1211"),
+            ("6ES7 212-1HE40-0XB0", "1212"),
+            ("6ES7 214-1AG40-0XB0", "1214"),
+            ("6ES7 215-1BG40-0XB0", "1215"),
+            ("6ES7 217-1AG40-0XB0", "1217"),
+            ("6ES7 212-1BD30-0XB0", "1212"),   # legacy V2 order number
+        ):
+            self.assertEqual(cpu_of(mlfb), cpu, mlfb)
+
+    def test_unparseable_order_number_does_not_raise(self) -> None:
+        self.assertEqual(cpu_of(""), "unknown")
+        self.assertEqual(cpu_of("no digits here"), "unknown")
 
 
 class TestIntelHex(unittest.TestCase):
@@ -258,6 +278,23 @@ class TestRealFirmware(unittest.TestCase):
         arch = identify_arch(image)
         self.assertIsNotNone(arch.entry_va)
         self.assertTrue(0 < arch.entry_va - arch.load_base < len(image))
+
+    def test_distinct_payloads_never_share_an_output_name(self) -> None:
+        """Two builds of one release must not overwrite each other.
+
+        The previous naming used a hardcoded size threshold, which put both
+        V4.7.0 builds in the same bucket and silently lost one of them.
+        """
+        by_name = {}
+        for label, data in self.files:
+            fw = Firmware(data)
+            digest = hashlib.sha256(fw.payload()).hexdigest()
+            name = f"{fw.version}_{cpu_of(fw.mlfb)}.bin"
+            previous = by_name.setdefault(name, digest)
+            self.assertEqual(
+                previous, digest,
+                f"{name} would be written from two different payloads",
+            )
 
     def test_every_image_places_its_entry_point_on_code(self) -> None:
         """The load base has to be right for every generation, not just modern.

@@ -36,13 +36,13 @@ Python 3.9 or later. There are no third party requirements.
 |---------|---------|
 | `s71200 info <file or dir>...` | container layout, table of contents, structural integrity |
 | `s71200 unpack <file.upd> -o out.bin` | extract the image from one container |
-| `s71200 batch <tree> <outdir>` | deduplicate by payload hash, unpack in parallel |
+| `s71200 batch <tree> <outdir>` | deduplicate by payload hash, unpack in parallel, name by CPU |
 | `s71200 identify <image.bin>` | architecture, load base, entry point, OMS+ build |
 | `s71200 symbols <image.bin>` | recover C++ class symbols |
 
 ```
-$ s71200 identify V04.05.02_small.bin
-file        : V04.05.02_small.bin (22839431 bytes)
+$ s71200 identify V04.05.02_1211.bin
+file        : V04.05.02_1211.bin (22839431 bytes)
 architecture: ARM 32-bit big-endian, base 0x37fc0
 confidence  : high
 vector table: file 0x40 -> VA 0x00038000
@@ -90,7 +90,7 @@ s71200/            Python package
   cli.py           command line front end
 ida/               IDA Pro loader, headless script, and a test that runs
                    without IDA installed
-tests/             33 tests
+tests/             36 tests
 docs/FORMAT.md     container, compression and image format specification
 requirements.txt   none at runtime; requirements-dev.txt has pytest, ruff, mypy
 ```
@@ -121,12 +121,26 @@ V4.6.0 and V4.7.0.
 |------|--------|
 | container parsing | 109 of 109, both generations |
 | extraction | V2.2.0 through V4.7.0 |
-| symbols | 2,608 on V3.0.2 rising to 9,956 on V4.4.0, then 7,097 to 7,202 from V4.5.0 on. Stable within a release across CPU order numbers. V2.2.0 carries no records this recognises |
+| symbols | 2,608 on V3.0.2 rising to 9,956 on V4.4.0, then 7,097 to 7,202 from V4.5.0 on. Stable within a build. V2.2.0 carries no records this recognises |
 | IDA loading | V2.2.0, V3.0.2, V4.2.0, V4.3.1, V4.4.0, V4.5.2, V4.6.0, V4.7.0 and a pre-unpacked image, each verified in IDA 9.4 for processor, byte order, database bitness, load base, entry point, vector labels and symbol count |
-| V4.7.0 | all 10 CPU order numbers parse, carrying two distinct payloads. Both loaded in IDA 9.4 and verified end to end, including decompilation and the headless JSON export |
+| V4.7.0 | all 10 CPU order numbers parse, carrying the two builds below. Both loaded in IDA 9.4 and verified end to end, including decompilation and the headless JSON export |
 | decompiler | works on 32-bit ARM once the loader sets the database bitness. 24 of a 25 function sample on V4.7.0 return `MERR_OK` |
-| tests | 33 of 33, run with `S71200_CORPUS=/path/to/firmware python3 tests/test_s71200.py` |
+| tests | 36 of 36, run with `S71200_CORPUS=/path/to/firmware python3 tests/test_s71200.py` |
 | reproducibility | output stays byte identical across refactors |
+
+## Two builds per release
+
+A release covers many order numbers but ships only two distinct firmware
+payloads, split by CPU group, the same way in every release examined.
+
+| Build | Order numbers | Models | What is different |
+|-------|---------------|--------|-------------------|
+| `1211` | 6ES7 211, 212, 214 | CPU 1211C, 1212C, 1214C | one PROFINET port |
+| `1215` | 6ES7 215, 217 | CPU 1215C, 1217C | two-port PROFINET, MRP ring redundancy |
+
+`batch` names its output after the version and the build, for example
+`V04.07.00_1211.bin` and `V04.07.00_1215.bin`. The two differ by the media
+redundancy stack; [docs/FORMAT.md](docs/FORMAT.md) section 9 has the evidence.
 
 Other Siemens product lines are out of scope. That includes the S7-1500,
 ET200SP, Drive Controller and TIM 1531.
