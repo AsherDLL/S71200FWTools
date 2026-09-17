@@ -1,13 +1,13 @@
-s7fw
-Copyright 2026 the s7fw authors
+s71200
+Copyright 2026 the s71200 authors
 
 This product includes software derived from s7unpack
 (https://github.com/jibeee/s7unpack), Copyright 2018 Jean-Baptiste Bedrune,
 licensed under the Apache License, Version 2.0.
 
-The LZP compression algorithm implemented in s7fw/lzp.py was reverse engineered
+The LZP compression algorithm implemented in s71200/lzp.py was reverse engineered
 black-box from a compressed firmware image by Jean-Baptiste Bedrune (@jibeee)
-and presented at SSTIC 2015 and HITB Amsterdam 2015. s7fw is an independent
+and presented at SSTIC 2015 and HITB Amsterdam 2015. s71200 is an independent
 Python reimplementation of that algorithm.
 
 This project is not affiliated with, endorsed by, or supported by Siemens AG.

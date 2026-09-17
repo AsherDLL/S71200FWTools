@@ -1,4 +1,4 @@
-# firmware is Siemens property -- never commit it
+# firmware is Siemens property, never commit it
 *.upd
 *.bin
 *.rar

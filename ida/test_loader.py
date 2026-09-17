@@ -1,6 +1,7 @@
 """Exercise the loader without IDA by stubbing the ida_* modules.
 
-Verifies the s7fw integration and control flow -- the values handed to IDA and
+Verifies the s71200 integration and control flow, meaning the values handed to
+IDA and
 the order of calls. It cannot verify IDA's own semantics; run it once inside
 IDA for that.
 
@@ -12,7 +13,7 @@ import types
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent))  # repo root, so `import s7fw` resolves
+sys.path.insert(0, str(HERE.parent))  # repo root, so `import s71200` resolves
 
 calls = []
 

@@ -1,4 +1,4 @@
-"""Exception hierarchy for :mod:`s7fw`."""
+"""Exception hierarchy for :mod:`s71200`."""
 
 from __future__ import annotations
 

@@ -115,7 +115,7 @@ class Firmware:
         self.mlfb = self.data[0x10:0x24].decode("latin-1").strip()
         self._detect_layout()
 
-    # -- layout detection ------------------------------------------------
+    # Layout detection
 
     def _candidate(self, layout: Layout) -> Tuple[List[Section], int, List[str]]:
         fmt = "<II" if layout.endianness == "little" else ">II"
@@ -172,7 +172,7 @@ class Firmware:
                 f"{len(self.data)} bytes ({len(self.data) - self.declared_end:+d})"
             )
 
-    # -- accessors -------------------------------------------------------
+    # Accessors
 
     def __getitem__(self, name: str) -> Section:
         for section in self.sections:

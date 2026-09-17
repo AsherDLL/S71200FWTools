@@ -106,7 +106,7 @@ def identify_arch(image: bytes) -> ArchInfo:
     if big_endian:
         try:
             (word,) = struct.unpack_from(">I", image, VECTOR_TABLE_OFFSET)
-            # LDR PC,[PC,#imm] -- PC reads as instruction address + 8
+            # LDR PC,[PC,#imm], where PC reads as instruction address + 8
             pool = VECTOR_TABLE_OFFSET + 8 + (word & 0xFFF)
             (entry_va,) = struct.unpack_from(">I", image, pool)
         except struct.error:

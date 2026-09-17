@@ -1,4 +1,4 @@
-"""Entry point for ``python -m s7fw``."""
+"""Entry point for ``python -m s71200``."""
 
 from __future__ import annotations
 

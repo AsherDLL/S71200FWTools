@@ -1,6 +1,6 @@
 """Recover C++ class symbols from an unpacked S7-1200 firmware image.
 
-The firmware carries a custom RTTI-like registry -- roughly 7,000 records, one
+The firmware carries a custom RTTI style registry of roughly 7,000 records, one
 per C++ class, each holding the class name and pointers to associated code.
 Record layout, offsets relative to the tag word:
 
@@ -8,7 +8,7 @@ Record layout, offsets relative to the tag word:
     -12  code pointer      (~57%)
      -4  code pointer      (~68%)
      +0  tag               identical across every record in an image
-     +4  pointer to name   -- points at +16 in 94% of records
+     +4  pointer to name   points at +16 in 94% of records
      +8  sequential type id
     +12  pointer to a base-class record, or 0 (~70% non-zero)
     +16  NUL-terminated name, inline
@@ -18,8 +18,8 @@ address, so it differs per build and is discovered per image rather than
 hardcoded.
 
 Only the names and record addresses are treated as facts. The code pointers are
-*associated* with the class -- constructor, destructor and virtual slots are the
-obvious candidates -- but which slot is which has not been established, so they
+associated with the class. Constructor, destructor and virtual slots are the
+obvious candidates, but which slot is which has not been established, so they
 are reported as associations and never turned into invented function names.
 """
 

@@ -44,12 +44,12 @@ def export(path):
 
     with open(path, "w") as handle:
         json.dump({"functions": functions, "classes": named}, handle, indent=1)
-    print("[s7fw] exported %d functions, %d classes -> %s"
+    print("[s71200] exported %d functions, %d classes -> %s"
           % (len(functions), len(named), path))
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else "s7fw-export.json"
+    out = sys.argv[1] if len(sys.argv) > 1 else "s71200-export.json"
     try:
         export(out)
     finally:

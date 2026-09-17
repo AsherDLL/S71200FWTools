@@ -1,7 +1,7 @@
-"""Test suite for :mod:`s7fw`.
+"""Test suite for :mod:`s71200`.
 
-Runs standalone (``python3 tests/test_s7fw.py``) or under pytest. Tests that
-need real firmware are skipped unless ``S7FW_CORPUS`` points at a tree
+Runs standalone (``python3 tests/test_s71200.py``) or under pytest. Tests that
+need real firmware are skipped unless ``S71200_CORPUS`` points at a tree
 containing ``.upd`` files.
 """
 
@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from s7fw import (  # noqa: E402
+from s71200 import (  # noqa: E402
     CHUNK_SIZE,
     CorruptStreamError,
     Firmware,
@@ -31,7 +31,7 @@ from s7fw import (  # noqa: E402
     iter_chunks,
 )
 
-CORPUS = os.environ.get("S7FW_CORPUS")
+CORPUS = os.environ.get("S71200_CORPUS")
 _SEED = b"\x01\x02\x03\x04"
 
 
@@ -124,7 +124,7 @@ class TestContainerRejection(unittest.TestCase):
             Firmware(b"\x04\x00\x00\x00" + b"\xff" * 0x100)
 
 
-@unittest.skipUnless(_corpus_files(), "set S7FW_CORPUS to a firmware tree")
+@unittest.skipUnless(_corpus_files(), "set S71200_CORPUS to a firmware tree")
 class TestRealFirmware(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:

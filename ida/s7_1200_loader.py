@@ -3,8 +3,8 @@
 Install: copy to $IDAUSR/loaders/ (survives IDA upgrades)
     macOS/Linux  ~/.idapro/loaders/
     Windows      %APPDATA%\\Hex-Rays\\IDA Pro\\loaders\\
-Needs s7fw importable by IDA's Python:
-    "$IDADIR/python3" -m pip install /opt/SIEMENS_EXPL/s7fwtool
+Needs s71200 importable by IDA's Python:
+    "$IDADIR/python3" -m pip install /opt/SIEMENS_EXPL/s71200tool
 
 Open a .upd and it decompresses, maps at the load base as big-endian ARM,
 labels the exception vectors and sets the entry point.
@@ -20,7 +20,7 @@ import ida_loader
 import ida_name
 import ida_segment
 
-import s7fw
+import s71200
 
 VECTORS = ("reset", "undef", "swi", "pabort", "dabort", "reserved", "irq", "fiq")
 UNPACKED_MAGIC = b"\x5d\x1bAS"  # header of an already-decompressed image
@@ -37,8 +37,8 @@ def accept_file(li, filename):
         return {"format": "Siemens S7-1200 firmware (unpacked image)",
                 "processor": "arm"}
     try:
-        fw = s7fw.Firmware(head)
-    except s7fw.S7FirmwareError:
+        fw = s71200.Firmware(head)
+    except s71200.S7FirmwareError:
         return 0
     if not fw.mlfb.startswith("6ES7"):
         return 0
@@ -54,14 +54,14 @@ def load_file(li, neflags, fmt):
     if head[:4] == UNPACKED_MAGIC:
         image, label = raw, "unpacked image"
     else:
-        fw = s7fw.Firmware(raw)
+        fw = s71200.Firmware(raw)
         for problem in fw.problems:
-            print("[s7fw] warning: %s" % problem)
+            print("[s71200] warning: %s" % problem)
         image, stats, _ = fw.unpack(strict=False)
         label = "%s %s (%d literals / %d matches)" % (
             fw.mlfb, fw.version, stats.literals, stats.matches)
 
-    arch = s7fw.identify_arch(image)
+    arch = s71200.identify_arch(image)
     base = arch.load_base
 
     ida_idp.set_processor_type("arm", ida_idp.SETPROC_LOADER)
@@ -81,11 +81,11 @@ def load_file(li, neflags, fmt):
         ida_entry.add_entry(arch.entry_va, arch.entry_va, "reset_handler", 1)
         ida_ida.inf_set_start_ea(arch.entry_va)
 
-    print("[s7fw] %s -> 0x%08X-0x%08X" % (label, base, base + len(image)))
-    oms = s7fw.find_oms_version(image)
+    print("[s71200] %s -> 0x%08X-0x%08X" % (label, base, base + len(image)))
+    oms = s71200.find_oms_version(image)
     if oms:
-        print("[s7fw] OMS+ %s" % oms)
-    print("[s7fw] %d class symbols applied" % apply_symbols(image))
+        print("[s71200] OMS+ %s" % oms)
+    print("[s71200] %d class symbols applied" % apply_symbols(image))
     return 1
 
 
@@ -97,7 +97,7 @@ def apply_symbols(image):
     rather than an invented function name.
     """
     count = 0
-    for sym in s7fw.extract_symbols(image):
+    for sym in s71200.extract_symbols(image):
         ida_name.set_name(sym.record_va, "rtti_" + _ident(sym.name),
                           ida_name.SN_NOCHECK | ida_name.SN_FORCE)
         for va in sym.code_vas:

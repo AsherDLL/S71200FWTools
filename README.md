@@ -1,12 +1,47 @@
-# s7fw
+# SIMATIC S7-1200 Firmware Unpacker and IDA Loader
 
-Container parser, LZP unpacker and C++ symbol recovery for Siemens SIMATIC
-S7-1200 firmware, with an IDA Pro loader.
+Tools for working with Siemens SIMATIC S7-1200 PLC firmware.
 
-Pure Python 3, no required dependencies, no build step.
+The `.upd` files Siemens ships are a container holding a compressed firmware
+image. This project parses that container, decompresses the image, recovers
+about 7,100 C++ class symbols from it, and optionally loads the result into
+IDA Pro with the correct processor, byte order and load address already set.
+
+The command line tools work on their own. IDA Pro is only needed for the
+loader in `ida/`.
+
+## What each part does
+
+| Part | Needs IDA | Purpose |
+|------|-----------|---------|
+| `s71200` package and CLI | no | parse the container, decompress, recover symbols |
+| `ida/s7_1200_loader.py` | yes | open a firmware file directly in IDA Pro |
+| `ida/s7_headless.py` | yes | run IDA in batch mode and export results as JSON |
+
+## Install
+
+```bash
+pip install .
+```
+
+That provides the `s71200` command. To run without installing, use
+`./s71200-cli` from the repository root.
+
+Python 3.9 or later. There are no third party requirements.
+
+## Command line
+
+| Command | Purpose |
+|---------|---------|
+| `s71200 info <file or dir>...` | container layout, table of contents, structural integrity |
+| `s71200 unpack <file.upd> -o out.bin` | decompress one container |
+| `s71200 batch <tree> <outdir>` | deduplicate by payload hash, unpack in parallel |
+| `s71200 identify <image.bin>` | architecture, load base, entry point, OMS+ build |
+| `s71200 symbols <image.bin>` | recover C++ class symbols |
 
 ```
-$ s7fw identify V04.05.02_small.bin
+$ s71200 identify V04.05.02_small.bin
+file        : V04.05.02_small.bin (22839431 bytes)
 architecture: ARM 32-bit big-endian, base 0x37fc0
 confidence  : high
 vector table: file 0x40 -> VA 0x00038000
@@ -16,33 +51,18 @@ ida         : ARM processor, big-endian, ROM base 0x37fc0
 OMS+        : 12.35.8 [OMSP_12.00.01.08_35.08.00.01]
 ```
 
-## Install
-
 ```bash
-pip install .                # provides the `s7fw` command
+s71200 symbols fw.bin --filter 'OMS::|ACE_6_5_0::'
+s71200 symbols fw.bin --json > symbols.json
 ```
 
-Or run in place without installing: `./s7fw-cli <command>`
-
-## CLI
-
-| command | purpose |
-|---|---|
-| `s7fw info <file\|dir>...` | container layout, TOC, structural integrity |
-| `s7fw unpack <f.upd> -o out.bin` | decompress one container |
-| `s7fw batch <tree> <outdir>` | dedupe by payload hash, unpack in parallel |
-| `s7fw identify <image.bin>` | architecture, load base, entry point, OMS+ build |
-| `s7fw symbols <image.bin>` | recover ~7,100 C++ class symbols |
-
-```bash
-s7fw symbols fw.bin --filter 'OMS::|ACE_6_5_0::'
-s7fw symbols fw.bin --json > symbols.json
-```
+The `ghidra` and `ida` lines print settings for a manual import. There is no
+Ghidra loader in this project. Only IDA Pro has one.
 
 ## Library
 
 ```python
-from s7fw import load, identify_arch, find_oms_version, extract_symbols
+from s71200 import load, identify_arch, find_oms_version, extract_symbols
 
 fw = load("6ES7 211-1HE40-0XB0 V04.05.02.upd")
 print(fw.version, fw.layout.value, fw.complete)   # V04.05.02 modern True
@@ -53,71 +73,73 @@ print(find_oms_version(image))                    # 12.35.8
 print(len(list(extract_symbols(image))))          # 7097
 ```
 
-## IDA Pro
-
-Copy `ida/s7_1200_loader.py` into `$IDAUSR/loaders/` (`~/.idapro/loaders/`, or
-`%APPDATA%\Hex-Rays\IDA Pro\loaders\`) and make `s7fw` importable by IDA's
-Python. Opening a `.upd` **or** an unpacked `.bin` then configures everything:
-big-endian ARM, load base `0x37FC0`, the eight exception vectors, the entry
-point, and ~7,100 class symbols.
-
-Headless:
-
-```bash
-idat -A -S"ida/s7_headless.py out.json" -o /tmp/fw.idb firmware.upd
-```
-
-No processor module is needed — the S7-1200 is ordinary big-endian ARM, which
-IDA ships. See [`ida/README.md`](ida/README.md).
-
-## Layout
+## Repository layout
 
 ```
-s7fw/
+s71200/            Python package
   __init__.py      public API
   errors.py        exception hierarchy rooted at S7FirmwareError
-  container.py     Firmware, Section, Layout, FirmwareVersion; auto-detects
-                   the legacy (V2.x) and modern (V3.0-V4.7) generations
+  container.py     Firmware, Section, Layout, FirmwareVersion. Detects both
+                   the legacy (V2.x) and modern (V3.0 to V4.7) container
+                   generations
   lzp.py           LzpDecoder, Chunk, iter_chunks
   fingerprint.py   architecture identification, OMS+ build version
   symbols.py       C++ class symbol recovery
-  cli.py           argparse front end
-ida/               IDA loader, headless script, IDA-free loader test
+  cli.py           command line front end
+ida/               IDA Pro loader, headless script, and a test that runs
+                   without IDA installed
 tests/             26 tests
-docs/FORMAT.md     format specification
+docs/FORMAT.md     container and compression format specification
 ```
 
-## Tested
+## IDA Pro
 
-109 `.upd` images, 19 CPU MLFBs, every S7-1200 release from V2.2.0 to V4.7.0.
+Copy `ida/s7_1200_loader.py` into `$IDAUSR/loaders/`, which is
+`~/.idapro/loaders/` on macOS and Linux or `%APPDATA%\Hex-Rays\IDA Pro\loaders\`
+on Windows. Make the `s71200` package importable by the Python that IDA uses.
 
-| | result |
-|---|---|
-| container parsing | 109/109, both TOC generations |
-| decompression | V3.0.2 - V4.7.0, strict mode |
-| V2.2.0 | container parses; payload is not LZP-chunked, so unpacking is unsupported and fails loudly |
-| symbols | 7,097 per release (7,107 large class), consistent across versions |
-| tests | 26/26 — `S7FW_CORPUS=/path/to/firmware python3 tests/test_s7fw.py` |
-| reproducibility | byte-identical output across every refactor |
+Opening a `.upd` file or an already unpacked `.bin` then sets up everything.
+Big-endian ARM, load base `0x37FC0`, the eight exception vectors, the entry
+point, and the recovered class symbols.
 
-Not supported: S7-1500, ET200SP, Drive Controller, TIM 1531 — different product
-lines, formats unknown.
+No processor module is required. The S7-1200 is ordinary big-endian ARM, which
+IDA ships as standard. See [ida/README.md](ida/README.md).
 
-The per-section checksum algorithm is unidentified and `FW_SIG` is not verified,
-so integrity checking is **structural only**. This is not an authenticity check.
+## Coverage
+
+Tested against 109 `.upd` images covering 19 CPU order numbers and every
+S7-1200 release from V2.2.0 to V4.7.0.
+
+| Area | Result |
+|------|--------|
+| container parsing | 109 of 109, both generations |
+| decompression | V3.0.2 to V4.7.0, strict mode |
+| V2.2.0 | the container parses, but its payload is not LZP chunked, so unpacking is unsupported and reports an error |
+| symbols | 7,097 per release, 7,107 for the large CPU class, consistent across versions |
+| tests | 26 of 26, run with `S71200_CORPUS=/path/to/firmware python3 tests/test_s71200.py` |
+| reproducibility | output stays byte identical across refactors |
+
+Other Siemens product lines are out of scope. That includes the S7-1500,
+ET200SP, Drive Controller and TIM 1531.
+
+The per section checksum algorithm has not been identified and the `FW_SIG`
+block is not verified, so integrity checking here is structural only. It is not
+an authenticity check.
 
 ## Credit
 
-The LZP algorithm was reverse engineered black-box from a compressed firmware
-image by **Jean-Baptiste Bédrune** ([@jibeee](https://github.com/jibeee)) and
-published as [`s7unpack`](https://github.com/jibeee/s7unpack) under Apache-2.0,
-presented at SSTIC 2015 and HITB Amsterdam 2015. This package is an independent
-Python 3 reimplementation of his algorithm — the reverse engineering is his.
+The LZP algorithm was reverse engineered from a compressed firmware image by
+Jean-Baptiste Bédrune ([@jibeee](https://github.com/jibeee)) and published as
+[s7unpack](https://github.com/jibeee/s7unpack) under Apache 2.0. It was
+presented at SSTIC 2015 and HITB Amsterdam 2015. This project is an independent
+Python reimplementation of that algorithm. The reverse engineering is his work.
 
-It corrects three memory-safety defects in the original C (`lzp.c:57` heap
-under-read, `lzp.c:64` input over-read, `lzp.c:85` wild read on an unpopulated
-hash slot), adds the legacy V2 container, strict-mode corruption detection,
-symbol recovery and the IDA loader. Upstream also does not compile on macOS/BSD
-(`lzp.c` includes `<malloc.h>`).
+This version corrects three memory safety defects in the original C code, a
+heap under-read at `lzp.c:57`, an input over-read at `lzp.c:64`, and a wild read
+on an unpopulated hash slot at `lzp.c:85`. It also adds support for the legacy
+V2 container, strict mode corruption detection, symbol recovery and the IDA
+loader. The original does not compile on macOS or BSD because `lzp.c` includes
+`<malloc.h>`.
 
-Apache-2.0. Not affiliated with Siemens AG. No firmware is distributed here.
+Licensed under Apache 2.0. Not affiliated with Siemens AG. No firmware is
+distributed with this project.

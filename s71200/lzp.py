@@ -5,7 +5,7 @@ by Jean-Baptiste Bedrune (@jibeee) and released as ``s7unpack`` under the
 Apache License 2.0 (https://github.com/jibeee/s7unpack). This module is an
 independent Python reimplementation of *his* algorithm.
 
-It is LZP -- a hashed-context predictor -- not LZ77: a match token carries only
+It is LZP, a hashed context predictor, rather than LZ77. A match token carries only
 a length, and the source position is predicted from a hash of the preceding
 four output bytes, so no offset is ever transmitted.
 
@@ -17,7 +17,7 @@ Three memory-safety defects in the original C are corrected here:
 ``lzp.c:64``     bounds-checks the input cursor once per eight symbols, so it
                  can over-read up to eight bytes
 ``lzp.c:85``     indexes with a match position of ``0xFFFFFFFF`` when the hash
-                 slot was never populated -- a wild read
+                 slot was never populated, causing a wild read
 ===============  ==========================================================
 """
 
@@ -238,6 +238,6 @@ class LzpDecoder:
         if strict and not out:
             raise CorruptStreamError(
                 f"no output from {len(blob)} bytes of payload across "
-                f"{len(chunks)} chunks -- wrong section or unknown layout"
+                f"{len(chunks)} chunks, wrong section or unknown layout"
             )
         return bytes(out), totals, sorted(headers)

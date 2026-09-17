@@ -1,4 +1,4 @@
-"""Command-line interface for :mod:`s7fw`."""
+"""Command-line interface for :mod:`s71200`."""
 
 from __future__ import annotations
 
@@ -191,7 +191,7 @@ def cmd_symbols(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="s7fw",
+        prog="s71200",
         description="Siemens SIMATIC S7-1200 firmware container tool",
         epilog="LZP algorithm reverse engineered by Jean-Baptiste Bedrune "
                "(@jibeee), s7unpack, Apache-2.0.",

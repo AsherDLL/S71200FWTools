@@ -1,6 +1,6 @@
-"""s7fw -- Siemens SIMATIC S7-1200 firmware container parser and LZP unpacker.
+"""Siemens SIMATIC S7-1200 firmware container parser and LZP unpacker.
 
-    >>> from s7fw import load
+    >>> from s71200 import load
     >>> fw = load("6ES7 211-1HE40-0XB0 V04.05.02.upd")
     >>> fw.version, fw.layout.value, fw.complete
     (V04.05.02, 'modern', True)

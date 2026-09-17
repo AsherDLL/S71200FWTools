@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "s7fw"
+name = "s71200"
 version = "1.0.0"
 description = "Siemens SIMATIC S7-1200 firmware container parser and LZP unpacker"
 readme = "README.md"
@@ -28,10 +28,10 @@ archives = ["rarfile>=4.0"]       # read vendor .rar bundles directly
 dev = ["pytest>=7.0", "ruff>=0.1", "mypy>=1.0"]
 
 [project.scripts]
-s7fw = "s7fw.cli:main"
+s71200 = "s71200.cli:main"
 
 [tool.setuptools]
-packages = ["s7fw"]
+packages = ["s71200"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
