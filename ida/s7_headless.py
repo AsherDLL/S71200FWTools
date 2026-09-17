@@ -1,12 +1,12 @@
 """Batch-mode IDA script: load firmware, run auto-analysis, export JSON.
 
-    idat -A -S"s7_headless.py out.json" -o /tmp/fw.idb firmware.upd
+    idat -A -S"s7_headless.py out.json" -o /tmp/fw firmware.upd
 
   -A   non-interactive (never prompt)
   -S   run this script after loading
-  -o   where to write the database
+  -o   where to write the database; IDA 9 appends .i64 regardless
 
-Use idat (text mode), not ida; on Windows it is idat.exe / idat64.exe.
+Use idat (text mode), not ida; on Windows it is idat.exe.
 The .upd or unpacked .bin is handled by s7_1200_loader.py, which must be in
 $IDAUSR/loaders/.
 

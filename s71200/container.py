@@ -11,6 +11,9 @@ modern      V3.0 - V4.7    little          present     BG_ABL A00000 B00000 FW_S
 
 Both satisfy an exact completeness invariant, which is what the detector uses:
 the declared layout must account for the file to the byte.
+
+The payloads differ too. A modern code section is an LZP stream; a legacy one
+is Intel HEX text, decoded by :mod:`s71200.ihex`.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterator, List, Optional, Sequence, Tuple
 
+from . import ihex
 from .errors import TruncatedContainerError, UnknownLayoutError
 from .lzp import CHUNK_SIZE, LzpDecoder, LzpStats
 
@@ -215,11 +219,17 @@ class Firmware:
         strict: bool = True,
         reuse_table: bool = False,
     ) -> Tuple[bytes, LzpStats, Sequence[int]]:
-        """Decompress a section. Returns (image, stats, chunk header values)."""
+        """Extract a section. Returns (image, stats, chunk header values).
+
+        Modern containers hold an LZP stream. Legacy ones hold Intel HEX, which
+        is not compressed, so the statistics come back zeroed.
+        """
+        payload = self.payload(name)
+        if ihex.looks_like_ihex(payload):
+            _, image = ihex.decode(payload)
+            return image, LzpStats(), ()
         decoder = LzpDecoder(strict=strict)
-        return decoder.decode_section(
-            self.payload(name), strict=strict, reuse_table=reuse_table
-        )
+        return decoder.decode_section(payload, strict=strict, reuse_table=reuse_table)
 
     def __repr__(self) -> str:
         name = self.source.name if self.source else "<bytes>"

@@ -7,6 +7,7 @@ containing ``.upd`` files.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import struct
 import sys
@@ -15,6 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from s71200 import ihex  # noqa: E402
 from s71200 import (  # noqa: E402
     CHUNK_SIZE,
     CorruptStreamError,
@@ -124,6 +126,57 @@ class TestContainerRejection(unittest.TestCase):
             Firmware(b"\x04\x00\x00\x00" + b"\xff" * 0x100)
 
 
+def _ihex_record(kind: int, address: int, data: bytes) -> bytes:
+    body = bytes([len(data)]) + address.to_bytes(2, "big") + bytes([kind]) + data
+    return b":" + (body + bytes([-sum(body) & 0xFF])).hex().upper().encode()
+
+
+class TestIntelHex(unittest.TestCase):
+    """Legacy containers store the image as Intel HEX rather than an LZP stream."""
+
+    def test_round_trip_with_extended_address(self) -> None:
+        text = b"\r\n".join([
+            _ihex_record(0x04, 0, (0x0007).to_bytes(2, "big")),
+            _ihex_record(0x00, 0x0010, b"ABCD"),
+            _ihex_record(0x00, 0x0014, b"EFGH"),
+            _ihex_record(0x01, 0, b""),
+        ])
+        base, image = ihex.decode(text)
+        self.assertEqual(base, 0x70010)
+        self.assertEqual(image, b"ABCDEFGH")
+
+    def test_gaps_are_filled_with_erased_flash(self) -> None:
+        text = b"\r\n".join([
+            _ihex_record(0x00, 0x0000, b"AB"),
+            _ihex_record(0x00, 0x0006, b"CD"),
+        ])
+        _, image = ihex.decode(text)
+        self.assertEqual(image, b"AB" + b"\xff" * 4 + b"CD")
+
+    def test_bad_checksum_rejected(self) -> None:
+        good = _ihex_record(0x00, 0, b"AB")
+        with self.assertRaises(CorruptStreamError):
+            ihex.decode(good[:-1] + b"0")
+
+    def test_records_after_eof_ignored(self) -> None:
+        text = b"\r\n".join([
+            _ihex_record(0x00, 0, b"AB"),
+            _ihex_record(0x01, 0, b""),
+            _ihex_record(0x00, 0x1000, b"ZZ"),
+        ])
+        _, image = ihex.decode(text)
+        self.assertEqual(image, b"AB")
+
+    def test_non_hex_rejected(self) -> None:
+        with self.assertRaises(CorruptStreamError):
+            ihex.decode(b"5D1B4153 not intel hex")
+
+    def test_detection_only_claims_hex_text(self) -> None:
+        self.assertTrue(ihex.looks_like_ihex(_ihex_record(0x00, 0, b"AB")))
+        self.assertFalse(ihex.looks_like_ihex(b"\x5d\x1bAS\x00\x04\x00\x40"))
+        self.assertFalse(ihex.looks_like_ihex(b""))
+
+
 @unittest.skipUnless(_corpus_files(), "set S71200_CORPUS to a firmware tree")
 class TestRealFirmware(unittest.TestCase):
     @classmethod
@@ -205,6 +258,37 @@ class TestRealFirmware(unittest.TestCase):
         arch = identify_arch(image)
         self.assertIsNotNone(arch.entry_va)
         self.assertTrue(0 < arch.entry_va - arch.load_base < len(image))
+
+    def test_every_image_places_its_entry_point_on_code(self) -> None:
+        """The load base has to be right for every generation, not just modern.
+
+        A wrong base puts the entry point outside the image or on the vector
+        table, which is what happens if the two header layouts are confused.
+        """
+        checked = 0
+        seen = set()
+        for label, data in self.files:
+            fw = Firmware(data)
+            if not fw.complete:
+                continue
+            digest = hashlib.sha256(fw.payload()).hexdigest()
+            if digest in seen:  # CPU order numbers share payloads
+                continue
+            seen.add(digest)
+            image, _, _ = fw.unpack(strict=False)
+            if not image:
+                continue
+            arch = identify_arch(image)
+            offset = arch.entry_va - arch.load_base
+            self.assertTrue(
+                0x40 + 32 <= offset < len(image) - 4,
+                f"{Path(label).name}: entry at file 0x{offset:x} "
+                f"with base 0x{arch.load_base:x}",
+            )
+            # The entry point is real code, not another vector-table branch.
+            self.assertNotEqual(image[offset:offset + 3], b"\xe5\x9f\xf0")
+            checked += 1
+        self.assertGreater(checked, 0, "no complete containers in the corpus")
 
 
 if __name__ == "__main__":

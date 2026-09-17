@@ -1,8 +1,9 @@
 # SIMATIC S7-1200 firmware format (`.upd`)
 
-Derived from static analysis of 109 firmware images covering 19 CPU order
-numbers and every release from V2.2.0 to V4.7.0, together with the container
-and LZP logic in Jean-Baptiste Bédrune's `s7unpack`.
+Derived from static analysis of 109 firmware images covering 23 CPU order
+numbers and ten releases, V2.2.0, V3.0.2, V4.2.0, V4.3.1, V4.4.0, V4.5.0,
+V4.5.1, V4.5.2, V4.6.0 and V4.7.0, together with the container and LZP logic in
+Jean-Baptiste Bédrune's `s7unpack`.
 
 All multi-byte fields in the container are little-endian, except in the legacy
 V2 generation described below. Pointer tables inside the decompressed image are
@@ -33,8 +34,7 @@ Legacy completeness is `0x64 + sum(entry.size) == filesize`, verified as
 Modern completeness is `0x64 + sum(6 + entry.size) == filesize`.
 
 The legacy `cpu_fw` payload is not LZP chunked the way the modern `A00000`
-section is. V2 decompression is unsupported and reports an error rather than
-returning nothing.
+section is. It is Intel HEX text, described in section 5.
 
 ## 3. Modern container
 
@@ -144,19 +144,55 @@ the current chunk overwrites the stale entry before it can be referenced.
 Measured `forward_refs = 0` on all 8 unique payloads, which confirms that
 chunks are self contained.
 
-## 5. Decompressed image
+## 5. Legacy payload, Intel HEX
+
+V2.x containers store the image as Intel HEX rather than as a compressed
+stream, so extraction is a decode rather than a decompression. Records are CRLF
+separated and use three of the standard types.
+
+| Type | Meaning | Count in `6ES7 212-1BD30-0XB0 V02.02.00` |
+|------|---------|------------------------------------------|
+| `0x00` | data | 110,424 |
+| `0x04` | extended linear address, the upper 16 address bits | 55 |
+| `0x01` | end of file | 1 |
+
+Every record checksum validates. The 8,503,564 bytes of hex text decode to
+3,735,536 bytes of image starting with the `5D 1B 41 53` image magic. Gaps
+between records are filled with `0xFF`.
+
+The record addresses run `0x70000` to `0x3FFFF0` and describe the flash
+position, not the load address. The load address comes from the image header.
+
+## 6. Extracted image
 
 | Property | Value |
 |----------|-------|
-| size | 22,839,431 bytes, identical across all versions and CPU classes, a fixed flash region |
-| chunks | 349, being 348 full chunks and one 32,903 byte tail |
-| entropy | 5.82 bits per byte |
-| architecture | ARM 32-bit, ARMv7, big-endian, confirmed V3.0.2 through V4.7.0 |
-| load base | `0x37FC0`, so `virtual_address = file_offset + 0x37FC0` |
+| size | 22,839,431 bytes on V4.2 to V4.6, identical across CPU classes, a fixed flash region. 24,936,583 on V4.7.0, 10,256,453 on V3.0.2 and 3,735,536 on V2.2.0 |
+| chunks | 349 in a V4.5.2 image, being 348 full chunks and one 32,903 byte tail |
+| entropy | 5.82 bits per byte in a V4.5.2 image |
+| architecture | ARM 32-bit, ARMv7, big-endian, confirmed V2.2.0 through V4.7.0 |
+| load base | `0x37FC0` on V3.0 and later, so `virtual_address = file_offset + 0x37FC0` |
 | vector base | file `0x40`, virtual address `0x38000` |
 | reset handler | file `0x8080`, virtual address `0x40040` |
 | endianness | big-endian for both code and pointer tables |
 | RTOS | ADONIS, identified by the string `"ADONIS boot successful, starting first user thread"` |
+
+### Image header
+
+The image opens with `5D 1B 41 53` followed by fields whose layout differs
+between the two generations. The version marker, the byte `0x56` (`'V'`)
+followed by major, minor and patch, is what tells them apart.
+
+| Offset | V2.x | V3.0 and later |
+|--------|------|----------------|
+| `+0x04` | entry point virtual address | entry point virtual address |
+| `+0x10` | load base, `0x20000000` | `0x00040000` |
+| `+0x20` | flash base, `0x10070000` | version marker |
+| `+0x38` | version marker | zero |
+
+So a V2.2.0 image is mapped at `0x20000000` with its entry point at
+`0x20001D40`, which is file offset `0x1D40` and disassembles as
+`PUSH {R4-R7,R10,R11}`. Later images are mapped at `0x37FC0`.
 
 ### Architecture determination
 
@@ -188,11 +224,12 @@ About 13.5 MB of the 22.8 MB image is code, spanning file offsets `0x0` to
 Load in Ghidra as `ARM:BE:32:v7` at base `0x37FC0`, or in IDA as the `ARM`
 processor with big-endian byte order and the same base.
 
-## 6. C++ class symbol registry
+## 7. C++ class symbol registry
 
-The image carries a custom RTTI style registry of about 7,100 records, one per
-C++ class. Records are packed back to back, are variable length, and store the
-name inline. Offsets below are relative to the tag word.
+The image carries a custom RTTI style registry, one record per C++ class,
+between 2,608 and 9,956 of them depending on the release. Records are packed
+back to back, are variable length, and store the name inline. Offsets below are
+relative to the tag word.
 
 ```
 -20  code pointer      ARM prologue in about 50% of records
@@ -217,21 +254,34 @@ than the three `type_info` kinds, and the surrounding words do not match the
 Itanium vtable shape. Testing found 6 of 9,542 cross references fitting, which
 is noise.
 
-Recovered counts are 7,097 symbols per release for the small CPU class and
-7,107 for the large class, consistent across every version. Namespaces include
-`ACE_6_5_0::`, which is the ADAPTIVE Communication Environment C++ framework
-version 6.5.0, along with `OMS::`, `OPCUA::`, `xUMAC::` and `xS7PWEB::`. 886
-classes are OMS related.
+Recovered counts, one image per release:
 
-The names and record addresses are established facts. Every record resolves and
-the same 7,097 appear in every release. The code pointers at -4, -12 and -20 do
-point at real ARM prologues, so they are associated with the class. Constructor,
-destructor and virtual slots are the obvious candidates, but which slot is which
-has not been established. The tooling therefore reports them as associations,
-and the IDA loader attaches them as comments. It never invents function names
-from them.
+| Release | Symbols |
+|---------|---------|
+| V2.2.0 | 0, the generation carries no records this recognises |
+| V3.0.2 | 2,608 |
+| V4.2.0 | 8,927 |
+| V4.3.1 | 9,219 |
+| V4.4.0 | 9,956 |
+| V4.5.0 to V4.6.0 | 7,097 small CPU class, 7,107 large |
+| V4.7.0 | 7,192 |
 
-## 7. Version fingerprinting
+The count is stable within a release across CPU order numbers and differs
+between releases, so it is not a property of the parser. Why it falls by about
+a quarter between V4.4.0 and V4.5.0 has not been investigated.
+
+Namespaces include `ACE_6_5_0::`, which is the ADAPTIVE Communication
+Environment C++ framework version 6.5.0, along with `OMS::`, `OPCUA::`,
+`xUMAC::` and `xS7PWEB::`. 886 classes are OMS related in V4.5.2.
+
+The names and record addresses are established facts. Every record resolves.
+The code pointers at -4, -12 and -20 do point at real ARM prologues, so they
+are associated with the class. Constructor, destructor and virtual slots are
+the obvious candidates, but which slot is which has not been established. The
+tooling therefore reports them as associations, and the IDA loader marks them
+as offsets so they cross-reference. It never invents function names from them.
+
+## 8. Version fingerprinting
 
 Every image embeds the version of its OMS+ protocol stack, which identifies the
 build independently of the firmware version in the container header.
@@ -257,7 +307,7 @@ In a compressed `.upd` these strings are fragmented by LZP tokens and cannot be
 found with a plain substring search. After decompression they are contiguous,
 which makes that contiguity a useful correctness check on the unpacker.
 
-## 8. Cross release drift
+## 9. Cross release drift
 
 Consecutive releases differ in about 77% of bytes at fixed offsets, because
 each release is a full rebuild rather than a patch. Byte offset diffing is

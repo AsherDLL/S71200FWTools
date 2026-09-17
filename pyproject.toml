@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "s71200"
-version = "1.0.0"
-description = "Siemens SIMATIC S7-1200 firmware container parser and LZP unpacker"
+version = "1.1.0"
+description = "Siemens SIMATIC S7-1200 firmware container parser, image extractor and IDA Pro loader"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
-keywords = ["siemens", "s7-1200", "plc", "firmware", "reverse-engineering", "lzp"]
+keywords = ["siemens", "s7-1200", "plc", "firmware", "reverse-engineering", "lzp", "ida-pro"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -20,11 +20,9 @@ classifiers = [
 ]
 dependencies = []
 
-# Core unpacking is pure stdlib on purpose: it must run inside Ghidra's
-# Jython-adjacent environments, IDA's bundled Python, and bare CI images.
-# Everything that is merely *better* with a third-party library is optional.
+# The package has no runtime requirements, which is what lets the IDA loader
+# import it from whichever interpreter IDAPython happens to be built against.
 [project.optional-dependencies]
-archives = ["rarfile>=4.0"]       # read vendor .rar bundles directly
 dev = ["pytest>=7.0", "ruff>=0.1", "mypy>=1.0"]
 
 [project.scripts]

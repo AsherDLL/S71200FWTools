@@ -15,9 +15,16 @@ __all__ = ["OmsVersion", "ArchInfo", "find_oms_version", "identify_arch",
            "LOAD_BASE"]
 
 LOAD_BASE = 0x37FC0
-"""virtual_address = file_offset + LOAD_BASE (confirmed via the reset vector)."""
+"""virtual_address = file_offset + LOAD_BASE, for V3.0 and later images."""
 
 VECTOR_TABLE_OFFSET = 0x40
+# Image header. The version marker, "V" followed by major, minor and patch,
+# sits at 0x20 in V3.0 and later headers and at 0x38 in V2.x ones, which is
+# what tells the generations apart. A V2.x header carries its load base at
+# 0x10; later ones are always placed at LOAD_BASE.
+_VERSION_MARK = b"V"
+_LEGACY_VERSION_FIELD = 0x38
+_LEGACY_BASE_FIELD = 0x10
 _LDR_PC_BE = b"\xe5\x9f\xf0"  # LDR PC,[PC,#imm] in big-endian byte order
 
 # V4.4 onwards: OMSP_12.00.01.08_35.08.00.01 ; through V4.3: OMSP.REL.8089.16
@@ -89,12 +96,21 @@ def find_oms_version(image: bytes) -> Optional[OmsVersion]:
     return None
 
 
+def _resolve_base(image: bytes) -> int:
+    """The address the image is mapped at, from its header generation."""
+    field = image[_LEGACY_VERSION_FIELD : _LEGACY_VERSION_FIELD + 1]
+    if field == _VERSION_MARK:
+        return struct.unpack_from(">I", image, _LEGACY_BASE_FIELD)[0]
+    return LOAD_BASE
+
+
 def identify_arch(image: bytes) -> ArchInfo:
     """Identify the target architecture of an unpacked image.
 
     S7-1200 images carry an eight-entry ARM exception vector table at file
     offset 0x40, encoded big-endian. The reset entry resolves through a literal
-    pool to the entry point, which cross-checks the load base.
+    pool to the entry point. The load base comes from the image header, which
+    differs between the two generations.
     """
     window = image[VECTOR_TABLE_OFFSET : VECTOR_TABLE_OFFSET + 32]
     entries = sum(
@@ -116,7 +132,7 @@ def identify_arch(image: bytes) -> ArchInfo:
         architecture="ARM",
         bits=32,
         endianness="big" if big_endian else "unknown",
-        load_base=LOAD_BASE,
+        load_base=_resolve_base(image),
         vector_offset=VECTOR_TABLE_OFFSET if big_endian else None,
         entry_va=entry_va,
         confident=big_endian,

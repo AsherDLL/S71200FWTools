@@ -3,11 +3,12 @@
 Install: copy to $IDAUSR/loaders/ (survives IDA upgrades)
     macOS/Linux  ~/.idapro/loaders/
     Windows      %APPDATA%\\Hex-Rays\\IDA Pro\\loaders\\
-Needs s71200 importable by IDA's Python:
-    "$IDADIR/python3" -m pip install /path/to/this/repository
+Needs s71200 importable by the interpreter IDAPython is built against, which
+is not the one in the IDA directory. Print sys.prefix in IDA's Python console
+to find it, then pip install this repository into it. See README.md.
 
-Open a .upd and it decompresses, maps at the load base as big-endian ARM,
-labels the exception vectors and sets the entry point.
+Open a .upd and it extracts the image, maps it at the load base as big-endian
+ARM, labels the exception vectors and sets the entry point.
 
 LZP algorithm by Jean-Baptiste Bedrune (@jibeee), s7unpack, Apache-2.0.
 """
@@ -18,12 +19,14 @@ import ida_ida
 import ida_idp
 import ida_loader
 import ida_name
+import ida_offset
 import ida_segment
 
 import s71200
 
 VECTORS = ("reset", "undef", "swi", "pabort", "dabort", "reserved", "irq", "fiq")
-UNPACKED_MAGIC = b"\x5d\x1bAS"  # header of an already-decompressed image
+UNPACKED_MAGIC = b"\x5d\x1bAS"  # header of an already-extracted image
+CODE_SLOTS = (-20, -12, -4)  # code pointers, relative to the RTTI record tag
 
 
 def _peek(li):
@@ -34,16 +37,21 @@ def _peek(li):
 def accept_file(li, filename):
     head = _peek(li)
     if head[:4] == UNPACKED_MAGIC:
-        return {"format": "Siemens S7-1200 firmware (unpacked image)",
-                "processor": "arm"}
+        return _accept("Siemens S7-1200 firmware (unpacked image)")
     try:
         fw = s71200.Firmware(head)
     except s71200.S7FirmwareError:
         return 0
     if not fw.mlfb.startswith("6ES7"):
         return 0
-    return {"format": "Siemens S7-1200 firmware %s %s" % (fw.mlfb, fw.version),
-            "processor": "arm"}
+    return _accept("Siemens S7-1200 firmware %s %s" % (fw.mlfb, fw.version))
+
+
+def _accept(description):
+    # ACCEPT_FIRST, because generic loaders also match these files on content
+    # alone. IDA's SNES loader claims V4.6 images otherwise.
+    return {"format": description, "processor": "arm",
+            "options": ida_loader.ACCEPT_FIRST}
 
 
 def load_file(li, neflags, fmt):
@@ -66,6 +74,10 @@ def load_file(li, neflags, fmt):
 
     ida_idp.set_processor_type("arm", ida_idp.SETPROC_LOADER)
     ida_ida.inf_set_be(True)
+    # This firmware is ARM throughout. Left on, IDA's automatic ARM/Thumb
+    # switching mis-flips about 3 MB of it, including the entry point, and
+    # every mis-flipped byte disassembles two bytes at a time as nonsense.
+    ida_idp.process_config_directive("ARM_NO_ARM_THUMB_SWITCH=YES")
 
     ida_loader.mem2base(image, base, -1)
     ida_segment.add_segm(0, base, base + len(image), "FIRMWARE", "CODE")
@@ -79,6 +91,10 @@ def load_file(li, neflags, fmt):
 
     if arch.entry_va:
         ida_entry.add_entry(arch.entry_va, arch.entry_va, "reset_handler", 1)
+        # start_ea does not stick on its own: IDA recomputes it from cs:ip
+        # after the loader returns, and an unset cs shifts it by -0x10.
+        ida_ida.inf_set_start_cs(0)
+        ida_ida.inf_set_start_ip(arch.entry_va)
         ida_ida.inf_set_start_ea(arch.entry_va)
 
     print("[s71200] %s -> 0x%08X-0x%08X" % (label, base, base + len(image)))
@@ -90,18 +106,28 @@ def load_file(li, neflags, fmt):
 
 
 def apply_symbols(image):
-    """Name the RTTI records and cross-reference their associated code.
+    """Name the RTTI records and link them to the code they point at.
 
-    Only the names are certain. Which code slot is constructor, destructor or
-    virtual method has not been established, so associated code gets a comment
-    rather than an invented function name.
+    Only the names are certain. Which slot is constructor, destructor or
+    virtual method has not been established, so the slots are marked as
+    offsets rather than given invented function names. IDA renders the slot as
+    a reference to its target and generates the cross-reference, which is what
+    makes the class reachable from the code and the code from the class.
+
+    Marking the slot is what survives. Anything written to the target address
+    instead, a comment or a manual dref, is discarded by auto-analysis, since
+    at load time the target is still undefined bytes.
     """
     count = 0
     for sym in s71200.extract_symbols(image):
         ida_name.set_name(sym.record_va, "rtti_" + _ident(sym.name),
                           ida_name.SN_NOCHECK | ida_name.SN_FORCE)
-        for va in sym.code_vas:
-            ida_bytes.set_cmt(va, sym.name, True)
+        pointers = set(sym.code_vas)
+        for slot in CODE_SLOTS:
+            ea = sym.record_va + slot
+            if ida_bytes.get_dword(ea) in pointers:
+                ida_bytes.create_dword(ea, 4)
+                ida_offset.op_plain_offset(ea, 0, 0)
         count += 1
     return count
 

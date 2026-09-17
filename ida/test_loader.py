@@ -1,9 +1,8 @@
 """Exercise the loader without IDA by stubbing the ida_* modules.
 
 Verifies the s71200 integration and control flow, meaning the values handed to
-IDA and
-the order of calls. It cannot verify IDA's own semantics; run it once inside
-IDA for that.
+IDA and the order of calls. It cannot verify IDA's own semantics; run it once
+inside IDA for that.
 
     python3 ida/test_loader.py "path/to/firmware.upd"
 """
@@ -27,16 +26,32 @@ def _stub(name, *functions):
     return module
 
 
-_stub("ida_bytes", "create_dword", "set_cmt")
+mapped = {}  # what mem2base put in the database, so get_dword can read it back
+
+bts = _stub("ida_bytes", "create_dword")
+bts.get_dword = lambda ea: int.from_bytes(
+    mapped["image"][ea - mapped["base"]:ea - mapped["base"] + 4], "big")
 _stub("ida_entry", "add_entry")
-_stub("ida_ida", "inf_set_be", "inf_set_start_ea")
-_stub("ida_loader", "mem2base")
+_stub("ida_ida", "inf_set_be", "inf_set_start_ea", "inf_set_start_ip",
+      "inf_set_start_cs")
+ldr = _stub("ida_loader")
+ldr.ACCEPT_FIRST = 0x8000
+
+
+def _mem2base(image, base, _):
+    mapped["image"], mapped["base"] = image, base
+    calls.append(("ida_loader.mem2base", (image, base)))
+
+
+ldr.mem2base = _mem2base
 nm = _stub("ida_name", "set_name")
 nm.SN_NOCHECK = 1
 nm.SN_FORCE = 2
 
-idp = _stub("ida_idp", "set_processor_type")
+idp = _stub("ida_idp", "set_processor_type", "process_config_directive")
 idp.SETPROC_LOADER = 1
+
+_stub("ida_offset", "op_plain_offset")
 
 seg = _stub("ida_segment", "add_segm", "set_segm_addressing")
 seg.getseg = lambda ea: object()
@@ -85,11 +100,20 @@ def main(path):
     made = {name for name, _ in calls}
     for required in ("ida_idp.set_processor_type", "ida_ida.inf_set_be",
                      "ida_loader.mem2base", "ida_segment.add_segm",
-                     "ida_entry.add_entry", "ida_ida.inf_set_start_ea"):
+                     "ida_entry.add_entry", "ida_ida.inf_set_start_ea",
+                     "ida_ida.inf_set_start_ip", "ida_ida.inf_set_start_cs",
+                     "ida_bytes.create_dword"):
         assert required in made, f"loader never called {required}"
     names = sum(1 for n, _ in calls if n == "ida_name.set_name")
     assert names > 7000, f"expected 8 vectors + ~7000 symbols, got {names}"
     print(f"\n  {names} set_name calls (8 vectors + class symbols)")
+
+    # 8 vector dwords, then one per RTTI code pointer that got marked an offset
+    offsets = sum(1 for n, _ in calls if n == "ida_offset.op_plain_offset")
+    dwords = sum(1 for n, _ in calls if n == "ida_bytes.create_dword")
+    assert offsets > 1000, f"only {offsets} code pointers linked"
+    assert dwords == offsets + 8, f"{dwords} dwords for {offsets} offsets + 8 vectors"
+    print(f"  {offsets} RTTI code pointers marked as offsets")
     print("\nOK")
 
 
