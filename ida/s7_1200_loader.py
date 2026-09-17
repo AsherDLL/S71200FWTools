@@ -4,7 +4,7 @@ Install: copy to $IDAUSR/loaders/ (survives IDA upgrades)
     macOS/Linux  ~/.idapro/loaders/
     Windows      %APPDATA%\\Hex-Rays\\IDA Pro\\loaders\\
 Needs s71200 importable by IDA's Python:
-    "$IDADIR/python3" -m pip install /opt/SIEMENS_EXPL/s71200tool
+    "$IDADIR/python3" -m pip install /path/to/this/repository
 
 Open a .upd and it decompresses, maps at the load base as big-endian ARM,
 labels the exception vectors and sets the entry point.
