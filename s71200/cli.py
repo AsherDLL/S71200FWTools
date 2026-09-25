@@ -32,6 +32,30 @@ def _iter_firmware(paths: Iterable[str]) -> Iterable[tuple[str, Firmware]]:
             yield entry, load(path)
 
 
+# Unpacked images start with this; containers do not. Used only to tell the two
+# apart, so the magic lives here rather than becoming part of the public API.
+_IMAGE_MAGIC = b"\x5d\x1bAS"
+
+
+def _image_bytes(path: Path) -> bytes:
+    """Read an unpacked image, unpacking a container first if given one.
+
+    ``identify`` and ``symbols`` both work on an unpacked image, but a container
+    is what Siemens distributes, so it is what gets passed. Reading one raw finds
+    nothing and reports nothing found, which reads as an answer rather than as a
+    mistake. Anything that is neither is returned untouched, so the command that
+    asked for it still gets to produce its own diagnosis.
+    """
+    data = path.read_bytes()
+    if data[:4] == _IMAGE_MAGIC:
+        return data
+    try:
+        image, _, _ = load(path).unpack()
+    except S7FirmwareError:
+        return data
+    return image
+
+
 def cmd_info(args: argparse.Namespace) -> int:
     failures = 0
     for label, fw in _iter_firmware(args.files):
@@ -157,7 +181,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
 
 
 def cmd_identify(args: argparse.Namespace) -> int:
-    image = Path(args.file).read_bytes()
+    image = _image_bytes(Path(args.file))
     arch = identify_arch(image)
     oms = find_oms_version(image)
     print(f"file        : {Path(args.file).name} ({len(image)} bytes)")
@@ -178,8 +202,10 @@ def cmd_identify(args: argparse.Namespace) -> int:
 
 
 def cmd_symbols(args: argparse.Namespace) -> int:
-    image = Path(args.file).read_bytes()
-    symbols = list(extract_symbols(image))
+    image = _image_bytes(Path(args.file))
+    # The load base differs between image generations, and the record scan finds
+    # nothing at the wrong one, so take it from the image rather than defaulting.
+    symbols = list(extract_symbols(image, identify_arch(image).load_base))
     if args.filter:
         pattern = re.compile(args.filter, re.I)
         symbols = [s for s in symbols if pattern.search(s.name)]
@@ -241,13 +267,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("output")
     p.set_defaults(func=cmd_batch)
 
-    p = sub.add_parser("symbols", help="extract C++ class symbols from an image")
+    p = sub.add_parser(
+        "symbols", help="extract C++ class symbols from an image or container"
+    )
     p.add_argument("file")
     p.add_argument("--filter", help="only names matching this regex")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_symbols)
 
-    p = sub.add_parser("identify", help="identify arch/OMS+ of an unpacked image")
+    p = sub.add_parser(
+        "identify", help="identify arch/OMS+ of an image or container"
+    )
     p.add_argument("file")
     p.set_defaults(func=cmd_identify)
     return parser
