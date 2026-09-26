@@ -181,10 +181,19 @@ def cmd_batch(args: argparse.Namespace) -> int:
 
 
 def cmd_identify(args: argparse.Namespace) -> int:
-    image = _image_bytes(Path(args.file))
+    path = Path(args.file)
+    image = _image_bytes(path)
     arch = identify_arch(image)
     oms = find_oms_version(image)
-    print(f"file        : {Path(args.file).name} ({len(image)} bytes)")
+    # Report the file's own size, and the unpacked size separately when they
+    # differ, rather than labelling the container with its payload's length.
+    on_disk = path.stat().st_size
+    size = (
+        f"{on_disk} bytes"
+        if len(image) == on_disk
+        else f"{on_disk} bytes, unpacked to {len(image)}"
+    )
+    print(f"file        : {path.name} ({size})")
     print(f"architecture: {arch}")
     print(f"confidence  : {'high' if arch.confident else 'LOW'}")
     if arch.vector_offset is not None:
