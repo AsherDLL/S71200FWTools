@@ -11,6 +11,7 @@ import hashlib
 import os
 import struct
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -31,7 +32,7 @@ from s71200 import (  # noqa: E402
     ihex,
     iter_chunks,
 )
-from s71200.cli import cpu_of  # noqa: E402
+from s71200.cli import _image_bytes, cpu_of  # noqa: E402
 
 CORPUS = os.environ.get("S71200_CORPUS")
 _SEED = b"\x01\x02\x03\x04"
@@ -148,6 +149,38 @@ class TestOutputNaming(unittest.TestCase):
     def test_unparseable_order_number_does_not_raise(self) -> None:
         self.assertEqual(cpu_of(""), "unknown")
         self.assertEqual(cpu_of("no digits here"), "unknown")
+
+
+class TestImageInput(unittest.TestCase):
+    """identify and symbols take an unpacked image, but a container is what gets
+    distributed, so it is what gets passed. Reading one raw finds nothing and
+    reports nothing found, which reads as an answer rather than as a mistake."""
+
+    def _write(self, data: bytes) -> Path:
+        # addCleanup rather than enterContext, which is 3.11 and this package
+        # declares 3.9.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "f.bin"
+        path.write_bytes(data)
+        return path
+
+    def test_unpacked_image_is_returned_unchanged(self) -> None:
+        image = b"\x5d\x1bAS" + b"\x00" * 0x100
+        self.assertEqual(_image_bytes(self._write(image)), image)
+
+    def test_neither_image_nor_container_is_returned_unchanged(self) -> None:
+        """So the caller still produces its own diagnosis rather than this one."""
+        junk = bytes(range(256)) * 2
+        self.assertEqual(_image_bytes(self._write(junk)), junk)
+
+    @unittest.skipUnless(_corpus_files(), "set S71200_CORPUS")
+    def test_container_is_unpacked(self) -> None:
+        label, data = _corpus_files()[0]
+        path = self._write(data)
+        image = _image_bytes(path)
+        self.assertNotEqual(image, data, f"{label}: container was not unpacked")
+        self.assertTrue(list(extract_symbols(image, identify_arch(image).load_base)))
 
 
 class TestIntelHex(unittest.TestCase):
